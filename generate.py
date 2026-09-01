@@ -68,12 +68,14 @@ def copy_mp3s(source: Path) -> list[tuple[Path, Path]]:
     return copied
 
 
-def render_index(songs: list[dict]) -> str:
+def render_index(songs: list[dict], base_url: str) -> str:
     rows = []
     for song in songs:
+        abs_url = base_url.rstrip("/") + "/" + song["url"]
         rows.append(
             f'    <li><a href="{song["url"]}">{escape(song["title"])}</a>'
-            f' <span class="meta">({song["size_mb"]} MB)</span></li>'
+            f' <span class="meta">({song["size_mb"]} MB)</span>'
+            f' <button class="copy" data-url="{escape(abs_url)}">复制链接</button></li>'
         )
     list_html = "\n".join(rows) if rows else "    <li>暂无音乐。</li>"
     return f"""<!DOCTYPE html>
@@ -92,6 +94,9 @@ def render_index(songs: list[dict]) -> str:
     .meta {{ color: #888; font-size: 0.85em; }}
     a {{ color: #0366d6; text-decoration: none; }}
     a:hover {{ text-decoration: underline; }}
+    .copy {{ margin-left: 0.5rem; padding: 0.15rem 0.55rem; font-size: 0.85em; cursor: pointer; border: 1px solid #bbb; border-radius: 4px; background: #f6f8fa; color: #333; }}
+    .copy:hover {{ background: #eaeef2; }}
+    .copy.copied {{ background: #d4edda; border-color: #28a745; color: #1e7e34; }}
     footer {{ margin-top: 2rem; color: #999; font-size: 0.85em; }}
   </style>
 </head>
@@ -99,7 +104,7 @@ def render_index(songs: list[dict]) -> str:
   <h1>{escape(SITE_TITLE)}</h1>
   <p class="sub">{escape(SITE_DESCRIPTION)}</p>
   <audio id="player" controls preload="none"></audio>
-  <p>点击下方歌曲开始播放；也可以订阅 <a href="feed.xml">RSS/Podcast</a>。</p>
+  <p>点击歌曲开始播放；点“复制链接”可复制 MP3 直链供其他软件播放。也可以订阅 <a href="feed.xml">RSS/Podcast</a>。</p>
   <ul>
 {list_html}
   </ul>
@@ -110,6 +115,30 @@ def render_index(songs: list[dict]) -> str:
         event.preventDefault();
         player.src = a.href;
         player.play().catch(() => {{}});
+      }});
+    }});
+
+    document.querySelectorAll('button.copy').forEach(btn => {{
+      btn.addEventListener('click', async (event) => {{
+        event.stopPropagation();
+        const url = btn.dataset.url;
+        try {{
+          await navigator.clipboard.writeText(url);
+        }} catch (err) {{
+          const textarea = document.createElement('textarea');
+          textarea.value = url;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          textarea.remove();
+        }}
+        const original = btn.textContent;
+        btn.textContent = '已复制';
+        btn.classList.add('copied');
+        setTimeout(() => {{
+          btn.textContent = original;
+          btn.classList.remove('copied');
+        }}, 1500);
       }});
     }});
   </script>
@@ -173,7 +202,7 @@ def main() -> None:
         )
     songs.sort(key=lambda s: s["title"].lower())
 
-    (SITE_ROOT / "index.html").write_text(render_index(songs), encoding="utf-8")
+    (SITE_ROOT / "index.html").write_text(render_index(songs, base_url), encoding="utf-8")
     (SITE_ROOT / "feed.xml").write_text(render_feed(songs, base_url), encoding="utf-8")
     (SITE_ROOT / "songs.json").write_text(
         json.dumps(songs, ensure_ascii=False, indent=2), encoding="utf-8"
