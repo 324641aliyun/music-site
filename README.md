@@ -9,6 +9,29 @@
 - `songs.json` — 歌曲清单，便于其他程序读取。
 - `audio/` — MP3 音频文件。
 - `generate.py` — 自动生成脚本：扫描 MP3、复制到 `audio/` 并重新生成页面和订阅源。
+- `sync_music.py` — 自动同步脚本：扫描本地音乐目录，新增/删除 MP3，并自动提交推送到 GitHub。
+
+## 一键同步（推荐）
+
+把 MP3 放入 `C:\Users\324641\Music` 后，在仓库根目录运行：
+
+```bash
+python sync_music.py
+```
+
+脚本会：
+
+1. 拉取 GitHub 最新状态；
+2. 把本地音乐目录里新增或变化的 MP3 复制到 `audio/`；
+3. 删除本地音乐目录中已不存在的歌曲（包括 GitHub 上仍残留的）；
+4. 重新生成 `index.html`、`feed.xml`、`songs.json`；
+5. 自动提交并推送。
+
+预览模式（不修改、不推送）：
+
+```bash
+python sync_music.py --dry-run
+```
 
 ## 本地更新流程
 
