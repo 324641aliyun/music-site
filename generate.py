@@ -3,18 +3,16 @@
 """
 Generate the static music site.
 
-- Copies every .mp3 from MUSIC_SOURCE into ./audio
+- Scans ./audio for every .mp3
 - Writes index.html, feed.xml (RSS/Podcast), songs.json
 
 Usage:
     python generate.py
-    MUSIC_SOURCE="C:/Users/324641/Music" SITE_BASE_URL="https://USER.github.io/music-site/" python generate.py
+    SITE_BASE_URL="https://USER.github.io/music-site/" python generate.py
 """
 
 import json
 import os
-import shutil
-import sys
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from html import escape
@@ -25,7 +23,6 @@ from xml.sax.saxutils import escape as xml_escape
 SITE_ROOT = Path(__file__).resolve().parent
 AUDIO_DIR = SITE_ROOT / "audio"
 
-DEFAULT_MUSIC_SOURCE = r"C:\Users\324641\Music"
 DEFAULT_BASE_URL = "https://324641aliyun.github.io/music-site/"
 
 SITE_TITLE = "My Music Site"
@@ -44,28 +41,12 @@ def file_url(rel_path: Path) -> str:
     return quote(rel_path.as_posix(), safe="/")
 
 
-def collect_mp3s(source: Path) -> list[Path]:
-    if not source.is_dir():
-        print(f"ERROR: music source directory not found: {source}", file=sys.stderr)
+def collect_mp3s() -> list[Path]:
+    """Return all MP3 files currently under ./audio."""
+    if not AUDIO_DIR.is_dir():
+        print(f"ERROR: audio directory not found: {AUDIO_DIR}", file=sys.stderr)
         sys.exit(1)
-    return sorted(source.rglob("*.mp3"), key=lambda p: p.name.lower())
-
-
-def copy_mp3s(source: Path) -> list[tuple[Path, Path]]:
-    """Copy MP3 files into ./audio, preserving relative subfolders when present."""
-    AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    copied = []
-    for src in collect_mp3s(source):
-        rel = src.relative_to(source)
-        dst = AUDIO_DIR / rel
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        if dst.exists() and dst.stat().st_size == src.stat().st_size:
-            print(f"SKIP  {rel}")
-        else:
-            shutil.copy2(src, dst)
-            print(f"COPY  {rel}")
-        copied.append((src, dst))
-    return copied
+    return sorted(AUDIO_DIR.rglob("*.mp3"), key=lambda p: p.name.lower())
 
 
 def render_index(songs: list[dict], base_url: str) -> str:
@@ -179,19 +160,18 @@ def render_feed(songs: list[dict], base_url: str) -> str:
 
 
 def main() -> None:
-    music_source = Path(os.environ.get("MUSIC_SOURCE", DEFAULT_MUSIC_SOURCE))
     base_url = os.environ.get("SITE_BASE_URL", DEFAULT_BASE_URL).rstrip("/") + "/"
 
-    copied = copy_mp3s(music_source)
-    if not copied:
-        print("No MP3 files found.", file=sys.stderr)
+    mp3_files = collect_mp3s()
+    if not mp3_files:
+        print("No MP3 files found in ./audio.", file=sys.stderr)
         sys.exit(1)
 
     songs = []
-    for _src, dst in copied:
-        rel_path = dst.relative_to(SITE_ROOT)
-        title = clean_title(dst.stem)
-        size = dst.stat().st_size
+    for mp3_path in mp3_files:
+        rel_path = mp3_path.relative_to(SITE_ROOT)
+        title = clean_title(mp3_path.stem)
+        size = mp3_path.stat().st_size
         songs.append(
             {
                 "title": title,
