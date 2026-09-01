@@ -7,13 +7,13 @@
 - `index.html` — 网页播放页，展示全部 MP3，点击即可播放。
 - `feed.xml` — RSS/Podcast 订阅源，播客类 App 可识别并在线播放。
 - `songs.json` — 歌曲清单，便于其他程序读取。
-- `audio/` — MP3 音频文件。
-- `generate.py` — 自动生成脚本：扫描 MP3、复制到 `audio/` 并重新生成页面和订阅源。
-- `sync_music.py` — 自动同步脚本：扫描本地音乐目录，新增/删除 MP3，并自动提交推送到 GitHub。
+- `audio/` — 音乐文件夹。MP3、MP4 都放在这里，这是同步的唯一来源。
+- `generate.py` — 自动生成脚本：扫描 `audio/` 中的 MP3 并重新生成页面和订阅源。
+- `sync_music.py` — 自动同步脚本：转换 MP4、缩略歌名、添加秒数，然后提交推送到 GitHub。
 
 ## 一键同步（推荐）
 
-把 MP3 放入 `C:\Users\324641\Music` 后，在仓库根目录运行：
+把 MP3 或 MP4 直接放入 `C:\Users\324641\Documents\website\music\audio` 后，在仓库根目录运行：
 
 ```bash
 python sync_music.py
@@ -22,10 +22,12 @@ python sync_music.py
 脚本会：
 
 1. 拉取 GitHub 最新状态；
-2. 把本地音乐目录里新增或变化的 MP3 复制到 `audio/`；
-3. 删除本地音乐目录中已不存在的歌曲（包括 GitHub 上仍残留的）；
-4. 重新生成 `index.html`、`feed.xml`、`songs.json`；
-5. 自动提交并推送。
+2. 把 `audio/` 里的 MP4 转换为 MP3，并删除原 MP4；
+3. 缩略歌名：如果文件名中有完整的 `《...》`，只保留书名号中的内容；
+4. 为每首 MP3 添加 `[秒数]` 前缀；
+5. 将本地 `audio/` 与 GitHub 同步：新增本地有而 GitHub 没有的歌曲，删除 GitHub 有而本地已不存在的歌曲；
+6. 重新生成 `index.html`、`feed.xml`、`songs.json`；
+7. 自动提交并推送。
 
 预览模式（不修改、不推送）：
 
@@ -33,9 +35,15 @@ python sync_music.py
 python sync_music.py --dry-run
 ```
 
-## 本地更新流程
+只提交不推送：
 
-1. 把新的 MP3 放入 `C:\Users\324641\Music`（或修改脚本里的 `MUSIC_SOURCE`）。
+```bash
+python sync_music.py --no-push
+```
+
+## 本地更新流程（手动）
+
+1. 把新的 MP3/MP4 放入 `audio/`。
 2. 在仓库根目录运行：
 
    ```bash
