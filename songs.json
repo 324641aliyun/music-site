@@ -12,8 +12,8 @@
     "size_mb": "2.8"
   },
   {
-    "title": "[193] On My Way_音频",
-    "url": "audio/%5B193%5D%20On%20My%20Way_%E9%9F%B3%E9%A2%91.mp3",
+    "title": "[193] On My Way",
+    "url": "audio/%5B193%5D%20On%20My%20Way.mp3",
     "size": 3103598,
     "size_mb": "3.0"
   },
@@ -66,15 +66,15 @@
     "size_mb": "3.7"
   },
   {
-    "title": "[254] 【4K Hi-Res】兰亭序-周杰伦  情字何解 怎落笔都不对_音频",
-    "url": "audio/%5B254%5D%20%E3%80%904K%20Hi-Res%E3%80%91%E5%85%B0%E4%BA%AD%E5%BA%8F-%E5%91%A8%E6%9D%B0%E4%BC%A6%20%20%E6%83%85%E5%AD%97%E4%BD%95%E8%A7%A3%20%E6%80%8E%E8%90%BD%E7%AC%94%E9%83%BD%E4%B8%8D%E5%AF%B9_%E9%9F%B3%E9%A2%91.mp3",
-    "size": 4065741,
-    "size_mb": "3.9"
-  },
-  {
     "title": "[254] 人世间",
     "url": "audio/%5B254%5D%20%E4%BA%BA%E4%B8%96%E9%97%B4.mp3",
     "size": 4070338,
+    "size_mb": "3.9"
+  },
+  {
+    "title": "[254] 兰亭序",
+    "url": "audio/%5B254%5D%20%E5%85%B0%E4%BA%AD%E5%BA%8F.mp3",
+    "size": 4065741,
     "size_mb": "3.9"
   },
   {
@@ -138,8 +138,8 @@
     "size_mb": "4.5"
   },
   {
-    "title": "[294] 伍思凱 特別的愛給特別的你 KTV 高清修復版_音频",
-    "url": "audio/%5B294%5D%20%E4%BC%8D%E6%80%9D%E5%87%B1%20%E7%89%B9%E5%88%A5%E7%9A%84%E6%84%9B%E7%B5%A6%E7%89%B9%E5%88%A5%E7%9A%84%E4%BD%A0%20KTV%20%E9%AB%98%E6%B8%85%E4%BF%AE%E5%BE%A9%E7%89%88_%E9%9F%B3%E9%A2%91.mp3",
+    "title": "[294] 特別的愛給特別的你",
+    "url": "audio/%5B294%5D%20%E7%89%B9%E5%88%A5%E7%9A%84%E6%84%9B%E7%B5%A6%E7%89%B9%E5%88%A5%E7%9A%84%E4%BD%A0.mp3",
     "size": 4708562,
     "size_mb": "4.5"
   }
