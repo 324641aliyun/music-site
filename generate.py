@@ -57,7 +57,7 @@ def load_playlists_data() -> dict:
     except Exception as exc:
         print(f"WARN: cannot read playlists.json: {exc}", file=sys.stderr)
         return {"max_playlists": 10, "playlists": []}
-    data.setdefault("max_playlists", 10)
+    data["max_playlists"] = min(int(data.get("max_playlists", 10)), 10)
     data.setdefault("playlists", [])
     return data
 

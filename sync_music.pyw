@@ -25,6 +25,7 @@ Environment:
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -223,6 +224,24 @@ def regenerate() -> None:
     )
 
 
+def needs_hls_build() -> bool:
+    """Return True when an enabled playlist has no generated index.m3u8."""
+    playlists_path = REPO_ROOT / "playlists.json"
+    if not playlists_path.exists():
+        return False
+    try:
+        data = json.loads(playlists_path.read_text(encoding="utf-8"))
+    except Exception:
+        return True
+    for playlist in data.get("playlists", []):
+        if not playlist.get("enabled", True):
+            continue
+        index_path = REPO_ROOT / "hls" / playlist.get("id", "") / "index.m3u8"
+        if not index_path.is_file():
+            return True
+    return False
+
+
 def build_hls(force: bool = False) -> None:
     """Generate HLS streams for enabled playlists, if playlists.json exists."""
     if not (REPO_ROOT / "playlists.json").exists():
@@ -298,7 +317,14 @@ def main() -> None:
         return
 
     git_status = run_git(["status", "--short"]).stdout.strip()
-    if not audio_changed and not to_add and not to_delete and not git_status and not args.force_hls:
+    if (
+        not audio_changed
+        and not to_add
+        and not to_delete
+        and not git_status
+        and not args.force_hls
+        and not needs_hls_build()
+    ):
         print("No music changes.")
         return
 

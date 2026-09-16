@@ -104,6 +104,11 @@ def parse_hls_playlist(playlist_path: Path) -> tuple[list[tuple[str, str]], int]
     return entries, target_duration
 
 
+def playlist_segments_exist(playlist_path: Path, base_dir: Path) -> bool:
+    entries, _target_duration = parse_hls_playlist(playlist_path)
+    return bool(entries) and all((base_dir / uri).is_file() for _extinf, uri in entries)
+
+
 def song_cache_key(song: str, segment_time: int) -> str:
     path = AUDIO_DIR / song
     stat = path.stat()
@@ -129,6 +134,7 @@ def build_song_segments(song: str, segment_time: int, force: bool = False) -> tu
         and playlist_path.is_file()
         and hash_path.is_file()
         and hash_path.read_text(encoding="utf-8").strip() == source_hash
+        and playlist_segments_exist(playlist_path, cache_dir)
     ):
         entries, target_duration = parse_hls_playlist(playlist_path)
         return key, entries, target_duration

@@ -54,7 +54,7 @@ def load_data() -> dict:
         print(f"ERROR: cannot read {PLAYLISTS_PATH}: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    data.setdefault("max_playlists", MAX_PLAYLISTS)
+    data["max_playlists"] = min(int(data.get("max_playlists", MAX_PLAYLISTS)), MAX_PLAYLISTS)
     data.setdefault("loop_count", DEFAULT_LOOP_COUNT)
     data.setdefault("segment_time", DEFAULT_SEGMENT_TIME)
     data.setdefault("playlists", [])
