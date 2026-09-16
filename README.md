@@ -39,6 +39,33 @@ GUI 可以：
 - **GitHub 静态链接**：上传到 GitHub Pages 后可以离线播放固定轮数，不能真正无限循环。
 - **本机无限循环链接**：只要 GUI 软件保持运行，URL 就会无限循环播放歌单。其他软件在同一台电脑或同一局域网内可以直接访问。
 
+## 在 Minecraft netmusic:big_megaphone 中使用
+
+`netmusic:big_megaphone` 需要 **http/https、且以 `.m3u8` 结尾的 HLS 直播地址**。本项目的本机无限循环服务正好符合这个要求。
+
+使用步骤：
+
+1. 双击运行 `playlist_gui.pyw`
+2. 创建一个歌单，把一首或多首歌曲加入歌单
+3. 选中该歌单，点击“启动无限服务”
+4. 如果 Minecraft 客户端和 GUI 在同一台电脑上，复制“大喇叭链接（Minecraft 本机客户端）”
+5. 如果其他玩家也要听，复制“局域网无限链接”，并确保玩家能访问你的电脑
+6. 在 Minecraft 中打开 `netmusic:big_megaphone` 界面，把链接粘贴到 m3u8 URL 输入框，设置广播范围，点击开始
+
+链接示例：
+
+```text
+http://127.0.0.1:8765/hls/<歌单ID>/index.m3u8
+http://192.168.x.x:8765/hls/<歌单ID>/index.m3u8
+```
+
+注意事项：
+
+- GUI 软件必须保持运行，链接才会持续循环
+- 如果使用局域网链接，Windows 防火墙需要放行 TCP 8765（端口被占用时 GUI 会自动换到 8766 等）
+- GitHub 静态 99MB m3u8 也能填入，但它是有限长度的 VOD，播放到结尾会停止；而且文件很大，不推荐用于 Minecraft
+- 真正的无限循环请使用 GUI 的“启动无限服务”
+
 ## 命令行歌单管理
 
 ```bash

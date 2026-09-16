@@ -43,6 +43,7 @@ class PlaylistGUI:
         self.status_var = tk.StringVar(value="就绪")
         self.static_url_var = tk.StringVar()
         self.infinite_url_var = tk.StringVar()
+        self.local_url_var = tk.StringVar()
         self.search_var = tk.StringVar()
         self.result_queue: queue.Queue = queue.Queue()
 
@@ -104,12 +105,21 @@ class PlaylistGUI:
         ttk.Button(link_frame, text="生成静态 HLS", command=self.generate_static_link).grid(row=0, column=2, padx=3)
         ttk.Button(link_frame, text="复制", command=lambda: self.copy_var(self.static_url_var)).grid(row=0, column=3, padx=3)
 
-        ttk.Label(link_frame, text="本机无限循环链接（保持软件运行）").grid(row=1, column=0, sticky=tk.W, pady=(6, 0))
+        ttk.Label(link_frame, text="局域网无限链接（同网络其他客户端）").grid(row=1, column=0, sticky=tk.W, pady=(6, 0))
         infinite_entry = ttk.Entry(link_frame, textvariable=self.infinite_url_var, width=80)
         infinite_entry.grid(row=1, column=1, sticky=tk.EW, padx=6, pady=(6, 0))
         ttk.Button(link_frame, text="启动无限服务", command=self.start_infinite_server).grid(row=1, column=2, padx=3, pady=(6, 0))
         ttk.Button(link_frame, text="停止服务", command=self.stop_infinite_server).grid(row=1, column=3, padx=3, pady=(6, 0))
         ttk.Button(link_frame, text="复制", command=lambda: self.copy_var(self.infinite_url_var)).grid(row=1, column=4, padx=3, pady=(6, 0))
+
+        ttk.Label(link_frame, text="大喇叭链接（Minecraft 本机客户端）").grid(row=2, column=0, sticky=tk.W, pady=(6, 0))
+        local_entry = ttk.Entry(link_frame, textvariable=self.local_url_var, width=80)
+        local_entry.grid(row=2, column=1, sticky=tk.EW, padx=6, pady=(6, 0))
+        ttk.Button(link_frame, text="复制大喇叭链接", command=lambda: self.copy_var(self.local_url_var)).grid(row=2, column=2, columnspan=2, padx=3, pady=(6, 0))
+        ttk.Label(
+            link_frame,
+            text="把链接粘贴到 netmusic:big_megaphone 的 m3u8 URL 输入框；保持本软件运行，链接才会持续循环。",
+        ).grid(row=3, column=1, sticky=tk.W, padx=6, pady=(4, 0))
 
         link_frame.columnconfigure(1, weight=1)
 
@@ -329,11 +339,14 @@ class PlaylistGUI:
         playlist = self.current_playlist()
         if not self.server or not playlist:
             self.infinite_url_var.set("")
+            self.local_url_var.set("")
             return
         if playlist["id"] in self.server.entries:
             self.infinite_url_var.set(self.server.url_for(playlist["id"]))
+            self.local_url_var.set(self.server.url_for(playlist["id"], host="127.0.0.1"))
         else:
             self.infinite_url_var.set("")
+            self.local_url_var.set("")
 
     def _poll_queue(self) -> None:
         try:
@@ -416,6 +429,7 @@ class PlaylistGUI:
         self.server.stop()
         self.server = None
         self.infinite_url_var.set("")
+        self.local_url_var.set("")
         self.set_status("无限循环服务已停止")
 
     def on_close(self) -> None:
