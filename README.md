@@ -91,8 +91,11 @@ http://<本机局域网IP>:8765/hls/<歌单ID>/index.m3u8
 # 静态 m3u8 最大 50 MB
 python playlist_manager.py config --max-playlist-mb 50 --segment-time 30
 
-# 也可以强制指定固定循环次数（不使用自动大小计算）
-python hls_builder.py --loop-count 1000
+# 固定循环次数，关闭自动大小计算
+python playlist_manager.py config --loop-count 1000
+
+# 重新开启自动大小计算
+python playlist_manager.py config --auto-loop
 ```
 
 静态 99 MB 的 m3u8 会让部分播放器加载较慢，遇到兼容问题可以调低 `max_playlist_mb`。真正无限循环仍建议使用 GUI 的“本机无限循环服务”。

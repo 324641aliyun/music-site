@@ -35,6 +35,7 @@ DEFAULT_SEGMENT_TIME = 60
 
 DEFAULT_DATA = {
     "max_playlists": MAX_PLAYLISTS,
+    "auto_loop": True,
     "loop_count": DEFAULT_LOOP_COUNT,
     "segment_time": DEFAULT_SEGMENT_TIME,
     "max_playlist_mb": 99,
@@ -56,6 +57,7 @@ def load_data() -> dict:
         sys.exit(1)
 
     data["max_playlists"] = min(int(data.get("max_playlists", MAX_PLAYLISTS)), MAX_PLAYLISTS)
+    data.setdefault("auto_loop", True)
     data.setdefault("loop_count", DEFAULT_LOOP_COUNT)
     data.setdefault("segment_time", DEFAULT_SEGMENT_TIME)
     data.setdefault("max_playlist_mb", 99)
@@ -311,11 +313,14 @@ def cmd_show(data: dict, args: argparse.Namespace) -> None:
 
 
 def cmd_config(data: dict, args: argparse.Namespace) -> None:
+    if args.auto_loop:
+        data["auto_loop"] = True
     if args.loop_count is not None:
         if args.loop_count < 1:
             print("ERROR: --loop-count 必须大于 0", file=sys.stderr)
             sys.exit(1)
         data["loop_count"] = args.loop_count
+        data["auto_loop"] = False
     if args.segment_time is not None:
         if args.segment_time < 1:
             print("ERROR: --segment-time 必须大于 0", file=sys.stderr)
@@ -329,8 +334,8 @@ def cmd_config(data: dict, args: argparse.Namespace) -> None:
         data["max_playlist_mb"] = int(value) if float(value).is_integer() else value
     save_data(data)
     print(
-        f"loop_count={data['loop_count']}  segment_time={data['segment_time']}  "
-        f"max_playlist_mb={data['max_playlist_mb']}"
+        f"auto_loop={data['auto_loop']}  loop_count={data['loop_count']}  "
+        f"segment_time={data['segment_time']}  max_playlist_mb={data['max_playlist_mb']}"
     )
 
 
@@ -422,7 +427,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_show)
 
     p = sub.add_parser("config", help="修改 HLS 配置")
-    p.add_argument("--loop-count", type=int, default=None, help="m3u8 重复引用 TS 的次数，默认 100")
+    p.add_argument("--auto-loop", action="store_true", help="按最大文件大小自动计算循环次数（默认）")
+    p.add_argument("--loop-count", type=int, default=None, help="固定循环次数，设置后会关闭自动计算")
     p.add_argument("--segment-time", type=int, default=None, help="每个 TS 分片的秒数，默认 60")
     p.add_argument("--max-playlist-mb", type=float, default=None, help="静态 m3u8 最大 MB，默认 99")
     p.set_defaults(func=cmd_config)

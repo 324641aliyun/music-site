@@ -364,7 +364,12 @@ def build_all(
         else data.get("max_playlist_mb", DEFAULT_MAX_PLAYLIST_MB)
     )
     max_playlist_bytes = max(1, int(effective_max_mb * 1024 * 1024))
-    effective_loop_count = int(loop_count) if loop_count is not None else None
+    if loop_count is not None:
+        effective_loop_count = int(loop_count)
+    elif data.get("auto_loop", True):
+        effective_loop_count = None
+    else:
+        effective_loop_count = int(data.get("loop_count", 100))
     effective_segment_time = int(segment_time if segment_time is not None else data.get("segment_time", 60))
     if effective_loop_count is not None and effective_loop_count < 1:
         print("ERROR: loop_count 必须大于 0", file=sys.stderr)
