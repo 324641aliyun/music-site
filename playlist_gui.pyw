@@ -13,6 +13,7 @@ GUI 歌单管理器。
 """
 
 import os
+import queue
 import threading
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
@@ -43,10 +44,12 @@ class PlaylistGUI:
         self.static_url_var = tk.StringVar()
         self.infinite_url_var = tk.StringVar()
         self.search_var = tk.StringVar()
+        self.result_queue: queue.Queue = queue.Queue()
 
         self._build_ui()
         self.refresh_playlists()
         self.refresh_library()
+        self.root.after(100, self._poll_queue)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # ------------------------------------------------------------------ UI
@@ -332,19 +335,29 @@ class PlaylistGUI:
         else:
             self.infinite_url_var.set("")
 
+    def _poll_queue(self) -> None:
+        try:
+            while True:
+                kind, callback, payload = self.result_queue.get_nowait()
+                if kind == "ok":
+                    callback(payload)
+                else:
+                    self.set_status(f"失败：{payload}")
+                    messagebox.showerror("错误", str(payload))
+        except queue.Empty:
+            pass
+        self.root.after(100, self._poll_queue)
+
     def run_in_thread(self, work, done) -> None:
         def wrapper():
             try:
                 result = work()
             except SystemExit as exc:
-                message = str(exc)
-                self.root.after(0, lambda message=message: self.set_status(f"失败：{message}"))
-                return
+                self.result_queue.put(("error", None, str(exc)))
             except Exception as exc:
-                message = str(exc)
-                self.root.after(0, lambda message=message: messagebox.showerror("错误", message))
-                return
-            self.root.after(0, lambda result=result: done(result))
+                self.result_queue.put(("error", None, str(exc)))
+            else:
+                self.result_queue.put(("ok", done, result))
 
         threading.Thread(target=wrapper, daemon=True).start()
 
