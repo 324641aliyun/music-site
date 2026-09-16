@@ -4,7 +4,7 @@
 Generate the static music site.
 
 - Scans ./audio for every .mp3
-- Writes index.html, feed.xml (RSS/Podcast), songs.json
+- Writes index.html, feed.xml (RSS/Podcast), songs.json, playlists.html
 
 Usage:
     python generate.py
