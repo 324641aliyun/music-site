@@ -65,7 +65,7 @@ python playlist_manager.py delete "我的歌单"
 python playlist_manager.py list
 ```
 
-删除歌单里的音乐文件后，下次运行 `sync_music.pyw`、`playlist_manager.py` 或重新打开 GUI 时，会自动把该音乐从所有引用它的歌单中删除。
+删除歌单里的音乐文件后，下次运行 `sync_music.pyw` 或重新打开 GUI 时，会自动把该音乐从所有引用它的歌单中删除。
 
 ## HLS 说明
 
