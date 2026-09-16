@@ -154,9 +154,15 @@ def convert_mp4_to_mp3(mp4_path: Path) -> Path:
     return mp3_path
 
 
-def process_audio(dry_run: bool) -> bool:
-    """Convert MP4 -> MP3 and normalize MP3 names. Returns whether changes occur."""
+def process_audio(dry_run: bool) -> tuple[bool, dict[str, str]]:
+    """Convert MP4 -> MP3 and normalize MP3 names.
+
+    Returns (changed, rename_map), where rename_map maps old audio filenames
+    (relative to ./audio) to new audio filenames, so playlist references can be
+    updated automatically.
+    """
     changed = False
+    rename_map: dict[str, str] = {}
 
     mp4_files = sorted(AUDIO_DIR.rglob("*.mp4"), key=lambda p: p.name.lower())
     for mp4_path in mp4_files:
@@ -170,6 +176,7 @@ def process_audio(dry_run: bool) -> bool:
         try:
             convert_mp4_to_mp3(mp4_path)
             mp4_path.unlink()
+            rename_map[mp4_path.name] = target_name
             changed = True
         except Exception as exc:
             print(f"  convert failed: {exc}", file=sys.stderr)
@@ -185,6 +192,7 @@ def process_audio(dry_run: bool) -> bool:
             changed = True
             continue
 
+        old_name = mp3_path.name
         new_path = mp3_path.with_name(new_base)
         counter = 1
         while new_path.exists():
@@ -195,9 +203,14 @@ def process_audio(dry_run: bool) -> bool:
 
         print(f"RENAME {rel} -> {new_base}")
         mp3_path.rename(new_path)
+        rename_map[old_name] = new_base
+        # If this file was just converted from MP4, update that mapping too.
+        for source_name, target in list(rename_map.items()):
+            if target == old_name:
+                rename_map[source_name] = new_base
         changed = True
 
-    return changed
+    return changed, rename_map
 
 
 def regenerate() -> None:
@@ -208,6 +221,20 @@ def regenerate() -> None:
         check=True,
         env=env,
     )
+
+
+def build_hls(force: bool = False) -> None:
+    """Generate HLS streams for enabled playlists, if playlists.json exists."""
+    if not (REPO_ROOT / "playlists.json").exists():
+        print("No playlists.json, skip HLS generation.")
+        return
+    try:
+        import hls_builder
+        hls_builder.build_all(force=force)
+    except SystemExit as exc:
+        print(f"WARN: HLS generation stopped: {exc}", file=sys.stderr)
+    except Exception as exc:
+        print(f"WARN: HLS generation failed: {exc}", file=sys.stderr)
 
 
 def commit_and_push(message: str, push: bool) -> None:
@@ -229,13 +256,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true", help="show changes only")
     parser.add_argument("--no-push", action="store_true", help="commit but do not push")
+    parser.add_argument("--no-hls", action="store_true", help="skip HLS generation")
+    parser.add_argument("--force-hls", action="store_true", help="rebuild all HLS segments")
     args = parser.parse_args()
 
     print("Fetching remote state...")
     run_git(["fetch", "origin"], check=False)
 
     remote_audio = get_remote_audio_files()
-    audio_changed = process_audio(dry_run=args.dry_run)
+    audio_changed, rename_map = process_audio(dry_run=args.dry_run)
+
+    if rename_map and not args.dry_run:
+        try:
+            import playlist_manager
+            if playlist_manager.update_song_paths(rename_map):
+                print("Updated playlist song paths after audio renames.")
+        except Exception as exc:
+            print(f"WARN: could not update playlist references: {exc}", file=sys.stderr)
+
     local_audio = get_local_audio_files()
 
     to_add = local_audio - remote_audio
@@ -256,12 +294,17 @@ def main() -> None:
             print("No music changes.")
         else:
             print("Dry run: no changes were made.")
+        print("HLS generation skipped in dry-run mode.")
         return
 
     git_status = run_git(["status", "--short"]).stdout.strip()
-    if not audio_changed and not to_add and not to_delete and not git_status:
+    if not audio_changed and not to_add and not to_delete and not git_status and not args.force_hls:
         print("No music changes.")
         return
+
+    if not args.no_hls:
+        print("Building HLS streams...")
+        build_hls(force=args.force_hls)
 
     print("Regenerating site...")
     regenerate()
