@@ -342,6 +342,32 @@ def update_song_paths(mapping: dict[str, str]) -> bool:
     return changed
 
 
+def remove_missing_songs() -> list[tuple[str, str]]:
+    """Remove playlist references to audio files that no longer exist.
+
+    Returns a list of (playlist_name, song) pairs that were removed.
+    """
+    data = load_data()
+    existing = set(audio_relative_names())
+    removed: list[tuple[str, str]] = []
+    changed = False
+
+    for playlist in data["playlists"]:
+        kept = []
+        for song in playlist.get("songs", []):
+            if song in existing:
+                kept.append(song)
+            else:
+                removed.append((playlist.get("name", ""), song))
+                changed = True
+        if len(kept) != len(playlist.get("songs", [])):
+            playlist["songs"] = kept
+
+    if changed:
+        save_data(data)
+    return removed
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)

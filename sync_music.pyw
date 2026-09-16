@@ -285,11 +285,14 @@ def main() -> None:
     remote_audio = get_remote_audio_files()
     audio_changed, rename_map = process_audio(dry_run=args.dry_run)
 
-    if rename_map and not args.dry_run:
+    if not args.dry_run:
         try:
             import playlist_manager
-            if playlist_manager.update_song_paths(rename_map):
+            if rename_map and playlist_manager.update_song_paths(rename_map):
                 print("Updated playlist song paths after audio renames.")
+            removed_references = playlist_manager.remove_missing_songs()
+            for playlist_name, song in removed_references:
+                print(f"REMOVE FROM PLAYLIST [{playlist_name}] {song}")
         except Exception as exc:
             print(f"WARN: could not update playlist references: {exc}", file=sys.stderr)
 

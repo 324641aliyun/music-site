@@ -79,13 +79,11 @@ def render_index(songs: list[dict], base_url: str) -> str:
     rows = []
     for song in songs:
         abs_url = base_url.rstrip("/") + "/" + song["url"]
-        playlist_href = "playlists.html?song=" + quote(song["file"], safe="")
         rows.append(
             f'    <li><a href="{song["url"]}">{escape(song["title"])}</a>'
             f' <span class="meta">({song["size_mb"]} MB)</span>'
             f' <button class="copy" data-url="{escape(abs_url)}">复制链接</button>'
-            f' <button class="copy-name" data-name="{escape(song["name"])}">复制歌名</button>'
-            f' <a class="playlist-link" href="{playlist_href}">加入歌单</a></li>'
+            f' <button class="copy-name" data-name="{escape(song["name"])}">复制歌名</button></li>'
         )
     list_html = "\n".join(rows) if rows else "    <li>暂无音乐。</li>"
     return f"""<!DOCTYPE html>
@@ -104,8 +102,8 @@ def render_index(songs: list[dict], base_url: str) -> str:
     .meta {{ color: #888; font-size: 0.85em; }}
     a {{ color: #0366d6; text-decoration: none; }}
     a:hover {{ text-decoration: underline; }}
-    .copy, .copy-name, .playlist-link {{ margin-left: 0.5rem; padding: 0.15rem 0.55rem; font-size: 0.85em; cursor: pointer; border: 1px solid #bbb; border-radius: 4px; background: #f6f8fa; color: #333; display: inline-block; }}
-    .copy:hover, .copy-name:hover, .playlist-link:hover {{ background: #eaeef2; text-decoration: none; }}
+    .copy, .copy-name {{ margin-left: 0.5rem; padding: 0.15rem 0.55rem; font-size: 0.85em; cursor: pointer; border: 1px solid #bbb; border-radius: 4px; background: #f6f8fa; color: #333; display: inline-block; }}
+    .copy:hover, .copy-name:hover {{ background: #eaeef2; text-decoration: none; }}
     .copy.copied, .copy-name.copied {{ background: #d4edda; border-color: #28a745; color: #1e7e34; }}
     footer {{ margin-top: 2rem; color: #999; font-size: 0.85em; }}
   </style>
@@ -114,7 +112,7 @@ def render_index(songs: list[dict], base_url: str) -> str:
   <h1>{escape(SITE_TITLE)}</h1>
   <p class="sub">{escape(SITE_DESCRIPTION)}</p>
   <audio id="player" controls preload="none"></audio>
-  <p>点击歌曲开始播放；点“复制链接”可复制 MP3 直链，点“复制歌名”可复制不带时间前缀的歌名，点“加入歌单”可查看本机歌单操作方式。也可以订阅 <a href="feed.xml">RSS/Podcast</a>。</p>
+  <p>点击歌曲开始播放；点“复制链接”可复制 MP3 直链，点“复制歌名”可复制不带时间前缀的歌名。也可以订阅 <a href="feed.xml">RSS/Podcast</a>。</p>
   <ul>
 {list_html}
   </ul>

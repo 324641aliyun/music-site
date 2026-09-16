@@ -7,46 +7,39 @@
 - `index.html` — 网页播放页，展示全部 MP3，点击即可播放。
 - `feed.xml` — RSS/Podcast 订阅源，播客类 App 可识别并在线播放。
 - `songs.json` — 歌曲清单，便于其他程序读取。
-- `playlists.html` — 歌单入口页，展示歌单和 HLS 广播 URL。
 - `audio/` — 音乐文件夹。MP3、MP4 都放在这里，这是同步的唯一来源。
 - `playlists.json` — 本机歌单数据，最多 10 个歌单。
-- `generate.py` — 自动生成网页、订阅源和歌单入口页。
+- `playlist_gui.pyw` — 歌单管理 GUI 软件（推荐使用）。
 - `playlist_manager.py` — 本机歌单管理命令行工具。
-- `hls_builder.py` — 将歌单生成为 HLS（m3u8 + TS 分片）。
-- `sync_music.pyw` — 转换 MP4、缩略歌名、生成 HLS、同步 GitHub。
-- `hls/` — 自动生成的 HLS 文件。
+- `hls_builder.py` — 生成静态 HLS（m3u8 + TS 分片）。
+- `hls_server.py` — 本机无限循环 HLS 服务（GUI 内部调用）。
+- `sync_music.pyw` — 转换 MP4、缩略歌名、清理歌单、生成 HLS、同步 GitHub。
+- `generate.py` — 重新生成网页、订阅源和歌单入口页。
+- `hls/` — HLS 文件目录。
 
-## 一键同步（推荐）
+## 歌单管理 GUI（推荐）
 
-把 MP3 或 MP4 直接放入 `C:\Users\324641\Documents\website\music\audio` 后，在仓库根目录运行：
-
-```bash
-python sync_music.pyw
-```
-
-脚本会：
-
-1. 拉取 GitHub 最新状态；
-2. 把 `audio/` 里的 MP4 转换为 MP3，并删除原 MP4；
-3. 缩略歌名：如果文件名中有完整的 `《...》`，只保留书名号中的内容；
-4. 为每首 MP3 添加 `[秒数]` 前缀；
-5. 根据 `playlists.json` 生成 HLS 广播；
-6. 将本地 `audio/` 与 GitHub 同步；
-7. 重新生成 `index.html`、`feed.xml`、`songs.json`、`playlists.html`；
-8. 自动提交并推送。
-
-常用参数：
+双击 `playlist_gui.pyw`，或用命令运行：
 
 ```bash
-python sync_music.pyw --dry-run      # 只预览，不修改、不推送
-python sync_music.pyw --no-push      # 本地提交但不推送
-python sync_music.pyw --no-hls       # 本次跳过 HLS 生成
-python sync_music.pyw --force-hls    # 强制重建所有 HLS 分片
+python playlist_gui.pyw
 ```
 
-## 歌单管理
+GUI 可以：
 
-最多 10 个歌单，每个歌单对应一个独立的 HLS URL。
+- 新建、重命名、删除歌单
+- 启用、禁用歌单
+- 从歌曲库中搜索并添加歌曲
+- 从歌单中移除歌曲、调整歌曲顺序
+- 生成 GitHub 静态 HLS 链接
+- 启动本机无限循环 HLS 服务并生成无限循环链接
+
+其中：
+
+- **GitHub 静态链接**：上传到 GitHub Pages 后可以离线播放固定轮数，不能真正无限循环。
+- **本机无限循环链接**：只要 GUI 软件保持运行，URL 就会无限循环播放歌单。其他软件在同一台电脑或同一局域网内可以直接访问。
+
+## 命令行歌单管理
 
 ```bash
 # 创建歌单
@@ -72,54 +65,60 @@ python playlist_manager.py delete "我的歌单"
 python playlist_manager.py list
 ```
 
-生成/更新 HLS：
+删除歌单里的音乐文件后，下次运行 `sync_music.pyw`、`playlist_manager.py` 或重新打开 GUI 时，会自动把该音乐从所有引用它的歌单中删除。
 
-```bash
-python hls_builder.py
-python hls_builder.py --force
-python hls_builder.py --playlist "我的歌单"
-```
+## HLS 说明
 
-生成后的广播 URL 格式：
+- HLS 音频：AAC 128k
+- TS 分片：默认 60 秒
+- 同一个 MP3 的 TS 分片只存一份，多个歌单共用
+- 静态 HLS 地址格式：
 
 ```text
 https://324641aliyun.github.io/music-site/hls/<歌单ID>/index.m3u8
 ```
 
-HLS 默认：
+- 无限循环地址格式（本机 GUI 服务运行时）：
 
-- 音频编码：AAC 128k；
-- TS 分片：60 秒；
-- m3u8 重复引用 TS 分片：100 次，并使用 `#EXT-X-DISCONTINUITY` 分隔，达到长时间循环播放效果。
+```text
+http://<本机局域网IP>:8765/hls/<歌单ID>/index.m3u8
+```
 
-可修改配置：
+修改静态 HLS 的重复轮数和分片长度：
 
 ```bash
 python playlist_manager.py config --loop-count 50 --segment-time 30
 ```
 
-禁用或删除歌单后，下次运行 `hls_builder.py` 或 `sync_music.pyw` 会清理对应的 HLS 文件。
+## 一键同步
 
-## 网页上的“加入歌单”
+把 MP3 或 MP4 直接放入 `audio/` 后，运行：
 
-GitHub Pages 是纯静态托管，网页本身不能直接写本机文件。因此网页上的“加入歌单”按钮只做入口：点击后打开 `playlists.html`，页面会显示当前歌单和对应的本机操作命令，实际加入仍在本机用 `playlist_manager.py` 完成。
+```bash
+python sync_music.pyw
+```
+
+脚本会：
+
+1. 拉取 GitHub 最新状态；
+2. 把 MP4 转换为 MP3，并删除原 MP4；
+3. 缩略歌名（保留《...》中的内容）并添加 `[秒数]` 前缀；
+4. 歌曲重命名后自动更新歌单引用；
+5. 删除音乐文件后，自动从引用它的歌单中移除；
+6. 生成静态 HLS；
+7. 同步 `audio/` 到 GitHub；
+8. 重新生成网页并提交推送。
+
+常用参数：
+
+```bash
+python sync_music.pyw --dry-run      # 只预览
+python sync_music.pyw --no-push      # 本地提交不推送
+python sync_music.pyw --no-hls       # 跳过 HLS
+python sync_music.pyw --force-hls    # 强制重建 HLS
+```
 
 ## 部署地址
 
-默认站点地址（GitHub Pages）：
-
-```text
-https://324641aliyun.github.io/music-site/
-```
-
-RSS 订阅地址：
-
-```text
-https://324641aliyun.github.io/music-site/feed.xml
-```
-
-歌单入口：
-
-```text
-https://324641aliyun.github.io/music-site/playlists.html
-```
+- 网站首页：`https://324641aliyun.github.io/music-site/`
+- RSS：`https://324641aliyun.github.io/music-site/feed.xml`
