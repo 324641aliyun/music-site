@@ -4,5 +4,12 @@
   "loop_count": 100,
   "segment_time": 60,
   "max_playlist_mb": 99,
-  "playlists": []
+  "playlists": [
+    {
+      "id": "pl_ee93a6cd",
+      "name": "许家印",
+      "enabled": true,
+      "songs": []
+    }
+  ]
 }
