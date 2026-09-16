@@ -6,10 +6,11 @@ Build HLS streams for playlists stored in ./playlists.json.
 - Each unique MP3 is transcoded into AAC .ts segments once and cached under
   ./hls/_segments/<hash>/.
 - Each playlist gets ./hls/<playlist-id>/index.m3u8.
-- The playlist repeats the segment references until the m3u8 approaches the
-  configured size limit (default 99 MB), with #EXT-X-DISCONTINUITY between
-  repeats, so the static URL plays the playlist for a very long time without
-  storing duplicate TS files.
+- Default mode writes a single pass with #EXT-X-ENDLIST, because NetMusic's
+  big megaphone automatically restarts a finished stream.
+- An optional auto-fill mode repeats the segment references until the m3u8
+  approaches the configured size limit (default 99 MB), but NetMusic
+  deduplicates identical URIs, so auto-fill is not useful for big megaphone.
 
 Usage:
     python hls_builder.py

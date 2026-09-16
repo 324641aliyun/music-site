@@ -1,7 +1,7 @@
 {
   "max_playlists": 10,
-  "auto_loop": true,
-  "loop_count": 100,
+  "auto_loop": false,
+  "loop_count": 1,
   "segment_time": 60,
   "max_playlist_mb": 99,
   "playlists": [

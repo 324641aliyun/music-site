@@ -30,12 +30,12 @@ AUDIO_DIR = REPO_ROOT / "audio"
 PLAYLISTS_PATH = REPO_ROOT / "playlists.json"
 
 MAX_PLAYLISTS = 10
-DEFAULT_LOOP_COUNT = 100
+DEFAULT_LOOP_COUNT = 1
 DEFAULT_SEGMENT_TIME = 60
 
 DEFAULT_DATA = {
     "max_playlists": MAX_PLAYLISTS,
-    "auto_loop": True,
+    "auto_loop": False,
     "loop_count": DEFAULT_LOOP_COUNT,
     "segment_time": DEFAULT_SEGMENT_TIME,
     "max_playlist_mb": 99,
@@ -57,7 +57,7 @@ def load_data() -> dict:
         sys.exit(1)
 
     data["max_playlists"] = min(int(data.get("max_playlists", MAX_PLAYLISTS)), MAX_PLAYLISTS)
-    data.setdefault("auto_loop", True)
+    data.setdefault("auto_loop", False)
     data.setdefault("loop_count", DEFAULT_LOOP_COUNT)
     data.setdefault("segment_time", DEFAULT_SEGMENT_TIME)
     data.setdefault("max_playlist_mb", 99)

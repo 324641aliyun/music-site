@@ -12,7 +12,6 @@
 - `playlist_gui.pyw` — 歌单管理 GUI 软件（推荐使用）。
 - `playlist_manager.py` — 本机歌单管理命令行工具。
 - `hls_builder.py` — 生成静态 HLS（m3u8 + TS 分片）。
-- `hls_server.py` — 本机无限循环 HLS 服务（GUI 内部调用）。
 - `sync_music.pyw` — 转换 MP4、缩略歌名、清理歌单、生成 HLS、同步 GitHub。
 - `generate.py` — 重新生成网页、订阅源和歌单入口页。
 - `hls/` — HLS 文件目录。
@@ -31,40 +30,69 @@ GUI 可以：
 - 启用、禁用歌单
 - 从歌曲库中搜索并添加歌曲
 - 从歌单中移除歌曲、调整歌曲顺序
-- 生成 GitHub 静态 HLS 链接
-- 启动本机无限循环 HLS 服务并生成无限循环链接
-
-其中：
-
-- **GitHub 静态链接**：上传到 GitHub Pages 后可以离线播放固定轮数，不能真正无限循环。
-- **本机无限循环链接**：只要 GUI 软件保持运行，URL 就会无限循环播放歌单。其他软件在同一台电脑或同一局域网内可以直接访问。
+- 生成 Minecraft 大喇叭专用的 GitHub Pages 公网 m3u8 链接
 
 ## 在 Minecraft netmusic:big_megaphone 中使用
 
-`netmusic:big_megaphone` 需要 **http/https、且以 `.m3u8` 结尾的 HLS 直播地址**。本项目的本机无限循环服务正好符合这个要求。
+`netmusic:big_megaphone` 需要 **http/https、且以 `.m3u8` 结尾的直播地址**。本项目使用 GitHub Pages 提供公网静态 m3u8，不需要局域网，也不需要让本机软件一直运行。
 
-使用步骤：
+### 原理
+
+NetMusic 1.5.1 的 `M3U8InputStream` 会把 m3u8 中的 TS URI 逐个下载，遇到 `#EXT-X-ENDLIST` 后标记 `noMoreSegments`，当前流播放结束。随后 `BigMegaphoneClientManager` 检测到声音已经不在 `tickingSounds` 中，会在约 40 tick 后重新创建声音并再次播放。
+
+所以：
+
+- 单遍 m3u8 播完后，大喇叭会自动重新播放
+- 每轮之间约有 **2-3 秒空档**
+- 如果 m3u8 里重复写相同的 TS URI，NetMusic 内部会通过 `processedUrls` 去重，不会按重复次数播放
+- 99MB 的重复 m3u8 会被完整下载和解析，不适合大喇叭
+
+### 使用步骤
 
 1. 双击运行 `playlist_gui.pyw`
-2. 创建一个歌单，把一首或多首歌曲加入歌单
-3. 选中该歌单，点击“启动无限服务”
-4. 如果 Minecraft 客户端和 GUI 在同一台电脑上，复制“大喇叭链接（Minecraft 本机客户端）”
-5. 如果其他玩家也要听，复制“局域网无限链接”，并确保玩家能访问你的电脑
-6. 在 Minecraft 中打开 `netmusic:big_megaphone` 界面，把链接粘贴到 m3u8 URL 输入框，设置广播范围，点击开始
+2. 新建歌单，把一首或多首歌曲加入歌单
+3. 选中该歌单，点击“生成大喇叭链接”
+4. 运行同步脚本，把 m3u8 和 TS 分片推送到 GitHub：
 
-链接示例：
-
-```text
-http://127.0.0.1:8765/hls/<歌单ID>/index.m3u8
-http://192.168.x.x:8765/hls/<歌单ID>/index.m3u8
+```bash
+python sync_music.pyw
 ```
 
-注意事项：
+5. GUI 中会显示公网链接，例如：
 
-- GUI 软件必须保持运行，链接才会持续循环
-- 如果使用局域网链接，Windows 防火墙需要放行 TCP 8765（端口被占用时 GUI 会自动换到 8766 等）
-- GitHub 静态 99MB m3u8 也能填入，但它是有限长度的 VOD，播放到结尾会停止；而且文件很大，不推荐用于 Minecraft
-- 真正的无限循环请使用 GUI 的“启动无限服务”
+```text
+https://324641aliyun.github.io/music-site/hls/<歌单ID>/index.m3u8
+```
+
+6. 在 Minecraft 中打开 `netmusic:big_megaphone` 界面，把链接粘贴到 m3u8 URL 输入框，设置广播范围，点击开始
+
+之后即使玩家不在同一局域网，只要能访问 GitHub Pages，就可以听到音乐。
+
+### 当前默认配置
+
+`playlists.json` 默认是单遍模式：
+
+```json
+{
+  "auto_loop": false,
+  "loop_count": 1,
+  "segment_time": 60
+}
+```
+
+即每个歌单只生成一遍 m3u8，然后依靠大喇叭自动重播。
+
+修改分片长度：
+
+```bash
+python playlist_manager.py config --segment-time 30
+```
+
+如果改成自动大小模式（不推荐用于大喇叭）：
+
+```bash
+python playlist_manager.py config --auto-loop --max-playlist-mb 99
+```
 
 ## 命令行歌单管理
 
@@ -94,42 +122,16 @@ python playlist_manager.py list
 
 删除歌单里的音乐文件后，下次运行 `sync_music.pyw` 或重新打开 GUI 时，会自动把该音乐从所有引用它的歌单中删除。
 
-## HLS 说明
+## HLS 与同步
 
-- HLS 音频：AAC 128k
+HLS 默认：
+
+- 音频编码：AAC 128k
 - TS 分片：默认 60 秒
 - 同一个 MP3 的 TS 分片只存一份，多个歌单共用
-- 静态 HLS 会自动计算循环次数，让 `index.m3u8` 尽量接近 99 MB，但不超过 GitHub 单文件限制
-- 静态 HLS 地址格式：
+- 当前为单遍 m3u8，体积很小，适合公网大喇叭使用
 
-```text
-https://324641aliyun.github.io/music-site/hls/<歌单ID>/index.m3u8
-```
-
-- 无限循环地址格式（本机 GUI 服务运行时）：
-
-```text
-http://<本机局域网IP>:8765/hls/<歌单ID>/index.m3u8
-```
-
-修改静态 HLS 的大小上限和分片长度：
-
-```bash
-# 静态 m3u8 最大 50 MB
-python playlist_manager.py config --max-playlist-mb 50 --segment-time 30
-
-# 固定循环次数，关闭自动大小计算
-python playlist_manager.py config --loop-count 1000
-
-# 重新开启自动大小计算
-python playlist_manager.py config --auto-loop
-```
-
-静态 99 MB 的 m3u8 会让部分播放器加载较慢，遇到兼容问题可以调低 `max_playlist_mb`。真正无限循环仍建议使用 GUI 的“本机无限循环服务”。
-
-## 一键同步
-
-把 MP3 或 MP4 直接放入 `audio/` 后，运行：
+一键同步：
 
 ```bash
 python sync_music.pyw
@@ -137,25 +139,26 @@ python sync_music.pyw
 
 脚本会：
 
-1. 拉取 GitHub 最新状态；
-2. 把 MP4 转换为 MP3，并删除原 MP4；
-3. 缩略歌名（保留《...》中的内容）并添加 `[秒数]` 前缀；
-4. 歌曲重命名后自动更新歌单引用；
-5. 删除音乐文件后，自动从引用它的歌单中移除；
-6. 生成静态 HLS；
-7. 同步 `audio/` 到 GitHub；
-8. 重新生成网页并提交推送。
+1. 拉取 GitHub 最新状态
+2. 把 MP4 转换为 MP3，并删除原 MP4
+3. 缩略歌名并添加 `[秒数]` 前缀
+4. 歌曲重命名后自动更新歌单引用
+5. 删除音乐文件后自动从歌单移除
+6. 生成/更新静态 HLS
+7. 同步 `audio/`、`hls/` 到 GitHub
+8. 重新生成网页并提交推送
 
 常用参数：
 
 ```bash
-python sync_music.pyw --dry-run      # 只预览
-python sync_music.pyw --no-push      # 本地提交不推送
-python sync_music.pyw --no-hls       # 跳过 HLS
-python sync_music.pyw --force-hls    # 强制重建 HLS
+python sync_music.pyw --dry-run
+python sync_music.pyw --no-push
+python sync_music.pyw --no-hls
+python sync_music.pyw --force-hls
 ```
 
 ## 部署地址
 
 - 网站首页：`https://324641aliyun.github.io/music-site/`
 - RSS：`https://324641aliyun.github.io/music-site/feed.xml`
+- 大喇叭链接格式：`https://324641aliyun.github.io/music-site/hls/<歌单ID>/index.m3u8`

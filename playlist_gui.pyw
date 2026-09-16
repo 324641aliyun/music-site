@@ -5,8 +5,7 @@ GUI 歌单管理器。
 
 运行后可以直接管理歌单、添加/删除歌曲、调整顺序，并生成：
 
-- GitHub 静态 HLS 链接（需要同步到 GitHub 后使用）
-- 本机无限循环 HLS 链接（保持本软件运行即可持续播放）
+- GitHub Pages 公网 m3u8 链接（大喇叭单遍自动重播）
 
 直接双击本文件即可运行，也可以用：
     python playlist_gui.pyw
@@ -38,12 +37,9 @@ class PlaylistGUI:
         self.all_songs = pm.audio_relative_names()
 
         self.current_id: str | None = None
-        self.server = None
         self.filtered_songs: list[str] = []
         self.status_var = tk.StringVar(value="就绪")
         self.static_url_var = tk.StringVar()
-        self.infinite_url_var = tk.StringVar()
-        self.local_url_var = tk.StringVar()
         self.search_var = tk.StringVar()
         self.result_queue: queue.Queue = queue.Queue()
 
@@ -99,27 +95,15 @@ class PlaylistGUI:
         link_frame = ttk.LabelFrame(self.root, text="广播链接", padding=8)
         link_frame.pack(fill=tk.X, padx=6, pady=4)
 
-        ttk.Label(link_frame, text="GitHub 静态链接（自动填充到大小上限）").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(link_frame, text="大喇叭公网链接（GitHub Pages）").grid(row=0, column=0, sticky=tk.W)
         static_entry = ttk.Entry(link_frame, textvariable=self.static_url_var, width=80)
         static_entry.grid(row=0, column=1, sticky=tk.EW, padx=6)
-        ttk.Button(link_frame, text="生成静态 HLS", command=self.generate_static_link).grid(row=0, column=2, padx=3)
+        ttk.Button(link_frame, text="生成大喇叭链接", command=self.generate_static_link).grid(row=0, column=2, padx=3)
         ttk.Button(link_frame, text="复制", command=lambda: self.copy_var(self.static_url_var)).grid(row=0, column=3, padx=3)
-
-        ttk.Label(link_frame, text="局域网无限链接（同网络其他客户端）").grid(row=1, column=0, sticky=tk.W, pady=(6, 0))
-        infinite_entry = ttk.Entry(link_frame, textvariable=self.infinite_url_var, width=80)
-        infinite_entry.grid(row=1, column=1, sticky=tk.EW, padx=6, pady=(6, 0))
-        ttk.Button(link_frame, text="启动无限服务", command=self.start_infinite_server).grid(row=1, column=2, padx=3, pady=(6, 0))
-        ttk.Button(link_frame, text="停止服务", command=self.stop_infinite_server).grid(row=1, column=3, padx=3, pady=(6, 0))
-        ttk.Button(link_frame, text="复制", command=lambda: self.copy_var(self.infinite_url_var)).grid(row=1, column=4, padx=3, pady=(6, 0))
-
-        ttk.Label(link_frame, text="大喇叭链接（Minecraft 本机客户端）").grid(row=2, column=0, sticky=tk.W, pady=(6, 0))
-        local_entry = ttk.Entry(link_frame, textvariable=self.local_url_var, width=80)
-        local_entry.grid(row=2, column=1, sticky=tk.EW, padx=6, pady=(6, 0))
-        ttk.Button(link_frame, text="复制大喇叭链接", command=lambda: self.copy_var(self.local_url_var)).grid(row=2, column=2, columnspan=2, padx=3, pady=(6, 0))
         ttk.Label(
             link_frame,
-            text="把链接粘贴到 netmusic:big_megaphone 的 m3u8 URL 输入框；保持本软件运行，链接才会持续循环。",
-        ).grid(row=3, column=1, sticky=tk.W, padx=6, pady=(4, 0))
+            text="把链接粘贴到 netmusic:big_megaphone 的 m3u8 URL 输入框。单遍播放，播完后大喇叭会自动重新播放，约 2-3 秒空档。",
+        ).grid(row=1, column=1, sticky=tk.W, padx=6, pady=(4, 0))
 
         link_frame.columnconfigure(1, weight=1)
 
@@ -209,7 +193,6 @@ class PlaylistGUI:
         if playlist:
             self.current_id = playlist["id"]
             self.refresh_songs()
-            self.refresh_infinite_url()
 
     # -------------------------------------------------------------- actions
     def new_playlist(self) -> None:
@@ -335,19 +318,6 @@ class PlaylistGUI:
         self.root.clipboard_append(value)
         self.set_status("已复制到剪贴板")
 
-    def refresh_infinite_url(self) -> None:
-        playlist = self.current_playlist()
-        if not self.server or not playlist:
-            self.infinite_url_var.set("")
-            self.local_url_var.set("")
-            return
-        if playlist["id"] in self.server.entries:
-            self.infinite_url_var.set(self.server.url_for(playlist["id"]))
-            self.local_url_var.set(self.server.url_for(playlist["id"], host="127.0.0.1"))
-        else:
-            self.infinite_url_var.set("")
-            self.local_url_var.set("")
-
     def _poll_queue(self) -> None:
         try:
             while True:
@@ -381,7 +351,7 @@ class PlaylistGUI:
             return
         self.save()
         playlist_id = playlist["id"]
-        self.set_status("正在生成静态 HLS，请稍候...")
+        self.set_status("正在生成大喇叭 m3u8，请稍候...")
 
         def work():
             import hls_builder
@@ -390,51 +360,11 @@ class PlaylistGUI:
 
         def done(url: str):
             self.static_url_var.set(url)
-            self.set_status("静态 HLS 链接已生成")
+            self.set_status("大喇叭公网链接已生成；同步到 GitHub 后即可使用")
 
         self.run_in_thread(work, done)
-
-    def start_infinite_server(self) -> None:
-        if self.server:
-            self.set_status("无限服务已经在运行")
-            return
-        self.save()
-        self.set_status("正在准备无限循环 HLS，请稍候...")
-
-        def work():
-            import hls_server
-            server = hls_server.InfiniteHlsServer(
-                self.data["playlists"],
-                segment_time=int(self.data.get("segment_time", 60)),
-                port=8765,
-            )
-            if not server.entries:
-                raise RuntimeError("没有启用的歌单，或歌单中没有有效歌曲。")
-            server.start()
-            return server
-
-        def done(server):
-            self.server = server
-            self.refresh_infinite_url()
-            self.set_status(
-                f"无限循环服务已启动，端口 {server.port}；保持本软件运行，链接才有效。"
-            )
-
-        self.run_in_thread(work, done)
-
-    def stop_infinite_server(self) -> None:
-        if not self.server:
-            self.set_status("无限服务未运行")
-            return
-        self.server.stop()
-        self.server = None
-        self.infinite_url_var.set("")
-        self.local_url_var.set("")
-        self.set_status("无限循环服务已停止")
 
     def on_close(self) -> None:
-        if self.server:
-            self.server.stop()
         self.root.destroy()
 
 
