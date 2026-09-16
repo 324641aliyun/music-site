@@ -46,6 +46,17 @@ def get_lan_ip() -> str:
         sock.close()
 
 
+def port_available(host: str, port: int) -> bool:
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.bind((host, port))
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
 def parse_extinf_duration(extinf: str) -> float:
     match = EXTINF_RE.match(extinf)
     return float(match.group(1)) if match else 0.0
@@ -267,6 +278,9 @@ class InfiniteHlsServer:
 
         last_error: OSError | None = None
         for candidate in range(self.port, self.port + 20):
+            if not port_available(self.host, candidate):
+                last_error = OSError(f"port {candidate} is already in use")
+                continue
             try:
                 self.httpd = ThreadingHTTPServer((self.host, candidate), Handler)
                 break
