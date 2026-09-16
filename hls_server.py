@@ -265,7 +265,16 @@ class InfiniteHlsServer:
                 self.end_headers()
                 self.wfile.write(data)
 
-        self.httpd = ThreadingHTTPServer((self.host, self.port), Handler)
+        last_error: OSError | None = None
+        for candidate in range(self.port, self.port + 20):
+            try:
+                self.httpd = ThreadingHTTPServer((self.host, candidate), Handler)
+                break
+            except OSError as exc:
+                last_error = exc
+        if self.httpd is None:
+            raise last_error or OSError("could not bind HLS server port")
+
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
         self.stream_start = time.monotonic()
