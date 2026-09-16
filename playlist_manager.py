@@ -37,6 +37,7 @@ DEFAULT_DATA = {
     "max_playlists": MAX_PLAYLISTS,
     "loop_count": DEFAULT_LOOP_COUNT,
     "segment_time": DEFAULT_SEGMENT_TIME,
+    "max_playlist_mb": 99,
     "playlists": [],
 }
 
@@ -57,6 +58,7 @@ def load_data() -> dict:
     data["max_playlists"] = min(int(data.get("max_playlists", MAX_PLAYLISTS)), MAX_PLAYLISTS)
     data.setdefault("loop_count", DEFAULT_LOOP_COUNT)
     data.setdefault("segment_time", DEFAULT_SEGMENT_TIME)
+    data.setdefault("max_playlist_mb", 99)
     data.setdefault("playlists", [])
     if not isinstance(data["playlists"], list):
         print("ERROR: playlists.json: 'playlists' must be a list", file=sys.stderr)
@@ -319,8 +321,17 @@ def cmd_config(data: dict, args: argparse.Namespace) -> None:
             print("ERROR: --segment-time 必须大于 0", file=sys.stderr)
             sys.exit(1)
         data["segment_time"] = args.segment_time
+    if args.max_playlist_mb is not None:
+        if args.max_playlist_mb <= 0:
+            print("ERROR: --max-playlist-mb 必须大于 0", file=sys.stderr)
+            sys.exit(1)
+        value = args.max_playlist_mb
+        data["max_playlist_mb"] = int(value) if float(value).is_integer() else value
     save_data(data)
-    print(f"loop_count={data['loop_count']}  segment_time={data['segment_time']}")
+    print(
+        f"loop_count={data['loop_count']}  segment_time={data['segment_time']}  "
+        f"max_playlist_mb={data['max_playlist_mb']}"
+    )
 
 
 def update_song_paths(mapping: dict[str, str]) -> bool:
@@ -413,6 +424,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("config", help="修改 HLS 配置")
     p.add_argument("--loop-count", type=int, default=None, help="m3u8 重复引用 TS 的次数，默认 100")
     p.add_argument("--segment-time", type=int, default=None, help="每个 TS 分片的秒数，默认 60")
+    p.add_argument("--max-playlist-mb", type=float, default=None, help="静态 m3u8 最大 MB，默认 99")
     p.set_defaults(func=cmd_config)
     return parser
 

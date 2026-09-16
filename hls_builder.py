@@ -6,9 +6,10 @@ Build HLS streams for playlists stored in ./playlists.json.
 - Each unique MP3 is transcoded into AAC .ts segments once and cached under
   ./hls/_segments/<hash>/.
 - Each playlist gets ./hls/<playlist-id>/index.m3u8.
-- The playlist repeats the segment references N times (default 100), with
-  #EXT-X-DISCONTINUITY between repeats, so the URL plays the playlist over and
-  over for a very long time without storing duplicate segment files.
+- The playlist repeats the segment references until the m3u8 approaches the
+  configured size limit (default 99 MB), with #EXT-X-DISCONTINUITY between
+  repeats, so the static URL plays the playlist for a very long time without
+  storing duplicate TS files.
 
 Usage:
     python hls_builder.py
@@ -34,6 +35,7 @@ PLAYLISTS_PATH = REPO_ROOT / "playlists.json"
 BITRATE = "128k"
 SAMPLE_RATE = "44100"
 CHANNELS = "2"
+DEFAULT_MAX_PLAYLIST_MB = 99
 NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
@@ -210,11 +212,16 @@ def find_playlist(data: dict, ident: str) -> dict | None:
 
 def build_playlist_hls(
     playlist: dict,
-    loop_count: int,
+    loop_count: int | None,
     segment_time: int,
     force: bool = False,
+    max_playlist_bytes: int | None = None,
 ) -> tuple[Path | None, set[str]]:
-    """Build one playlist. Returns (index path or None, referenced cache keys)."""
+    """Build one playlist.
+
+    If ``max_playlist_bytes`` is set and ``loop_count`` is None, the number of
+    loops is calculated automatically to fill the file up to that size.
+    """
     playlist_id = playlist["id"]
     out_dir = HLS_DIR / playlist_id
     index_path = out_dir / "index.m3u8"
@@ -236,13 +243,57 @@ def build_playlist_hls(
         print(f"SKIP   {playlist['name']}: 没有有效歌曲")
         return None, referenced_keys
 
+    max_target_duration = max(target for _key, _entries, target in blocks)
+    header = "\n".join(
+        [
+            "#EXTM3U",
+            "#EXT-X-VERSION:3",
+            f"#EXT-X-TARGETDURATION:{max_target_duration}",
+            "#EXT-X-MEDIA-SEQUENCE:0",
+            "#EXT-X-PLAYLIST-TYPE:VOD",
+            "#EXT-X-INDEPENDENT-SEGMENTS",
+            "",
+        ]
+    )
+    loop_lines: list[str] = []
+    for block_index, (key, entries, _target_duration) in enumerate(blocks):
+        if block_index > 0:
+            loop_lines.append("#EXT-X-DISCONTINUITY")
+        for extinf, uri in entries:
+            loop_lines.append(extinf)
+            loop_lines.append(f"../_segments/{key}/{uri}")
+    loop_body = "\n".join(loop_lines) + "\n"
+    discontinuity = "#EXT-X-DISCONTINUITY\n"
+    footer = "#EXT-X-ENDLIST\n"
+
+    loop_bytes = len(loop_body.encode("utf-8"))
+    discontinuity_bytes = len(discontinuity.encode("utf-8"))
+    header_bytes = len(header.encode("utf-8"))
+    footer_bytes = len(footer.encode("utf-8"))
+
+    effective_loops: int
+    if loop_count is not None:
+        effective_loops = max(1, int(loop_count))
+        if max_playlist_bytes and max_playlist_bytes > 0:
+            denominator = loop_bytes + discontinuity_bytes
+            allowed = max_playlist_bytes - header_bytes - footer_bytes + discontinuity_bytes
+            size_limited = max(1, allowed // denominator)
+            effective_loops = min(effective_loops, size_limited)
+    elif max_playlist_bytes and max_playlist_bytes > 0:
+        denominator = loop_bytes + discontinuity_bytes
+        allowed = max_playlist_bytes - header_bytes - footer_bytes + discontinuity_bytes
+        effective_loops = max(1, allowed // denominator)
+    else:
+        effective_loops = 100
+
     source_hash = hashlib.sha256(
         json.dumps(
             {
                 "id": playlist_id,
                 "name": playlist.get("name", ""),
                 "songs": valid_songs,
-                "loop_count": loop_count,
+                "loop_count": effective_loops,
+                "max_playlist_bytes": max_playlist_bytes,
                 "segment_time": segment_time,
                 "segment_keys": [key for key, _entries, _target in blocks],
             },
@@ -259,34 +310,23 @@ def build_playlist_hls(
         and hash_path.is_file()
         and hash_path.read_text(encoding="utf-8").strip() == source_hash
     ):
-        print(f"SKIP   {playlist['name']} (unchanged)")
+        print(f"SKIP   {playlist['name']} (unchanged, {effective_loops} loops)")
         return index_path, referenced_keys
 
-    max_target_duration = max(target for _key, _entries, target in blocks)
-    lines = [
-        "#EXTM3U",
-        "#EXT-X-VERSION:3",
-        f"#EXT-X-TARGETDURATION:{max_target_duration}",
-        "#EXT-X-MEDIA-SEQUENCE:0",
-        "#EXT-X-PLAYLIST-TYPE:VOD",
-        "#EXT-X-INDEPENDENT-SEGMENTS",
-    ]
+    with index_path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(header)
+        for loop_index in range(effective_loops):
+            if loop_index > 0:
+                handle.write(discontinuity)
+            handle.write(loop_body)
+        handle.write(footer)
 
-    for loop_index in range(loop_count):
-        if loop_index > 0:
-            lines.append("#EXT-X-DISCONTINUITY")
-        for block_index, (key, entries, _target_duration) in enumerate(blocks):
-            if block_index > 0:
-                lines.append("#EXT-X-DISCONTINUITY")
-            for extinf, uri in entries:
-                lines.append(extinf)
-                suffix = f"?l={loop_index}" if loop_index > 0 else ""
-                lines.append(f"../_segments/{key}/{uri}{suffix}")
-    lines.append("#EXT-X-ENDLIST")
-
-    index_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     hash_path.write_text(source_hash + "\n", encoding="utf-8")
-    print(f"BUILD  {playlist['name']} -> hls/{playlist_id}/index.m3u8  ({loop_count} loops)")
+    size_mb = index_path.stat().st_size / 1024 / 1024
+    print(
+        f"BUILD  {playlist['name']} -> hls/{playlist_id}/index.m3u8  "
+        f"({effective_loops} loops, {size_mb:.1f} MB)"
+    )
     return index_path, referenced_keys
 
 
@@ -312,14 +352,21 @@ def build_all(
     only_playlist: str | None = None,
     loop_count: int | None = None,
     segment_time: int | None = None,
+    max_playlist_mb: float | None = None,
 ) -> None:
     data = load_data()
     HLS_DIR.mkdir(parents=True, exist_ok=True)
     SEGMENTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    effective_loop_count = int(loop_count if loop_count is not None else data.get("loop_count", 100))
+    effective_max_mb = float(
+        max_playlist_mb
+        if max_playlist_mb is not None
+        else data.get("max_playlist_mb", DEFAULT_MAX_PLAYLIST_MB)
+    )
+    max_playlist_bytes = max(1, int(effective_max_mb * 1024 * 1024))
+    effective_loop_count = int(loop_count) if loop_count is not None else None
     effective_segment_time = int(segment_time if segment_time is not None else data.get("segment_time", 60))
-    if effective_loop_count < 1:
+    if effective_loop_count is not None and effective_loop_count < 1:
         print("ERROR: loop_count 必须大于 0", file=sys.stderr)
         sys.exit(1)
     if effective_segment_time < 1:
@@ -352,6 +399,7 @@ def build_all(
             loop_count=effective_loop_count,
             segment_time=effective_segment_time,
             force=force,
+            max_playlist_bytes=max_playlist_bytes,
         )
         referenced_keys.update(keys)
 
@@ -359,7 +407,11 @@ def build_all(
     # segment caches that may still be referenced by other playlists.
     if not only_playlist:
         cleanup(referenced_keys, all_enabled_ids)
-    print(f"完成：{len(enabled_playlists)} 个歌单，loop_count={effective_loop_count}，segment_time={effective_segment_time}")
+    loop_text = "自动按大小" if effective_loop_count is None else str(effective_loop_count)
+    print(
+        f"完成：{len(enabled_playlists)} 个歌单，loop={loop_text}，"
+        f"max={effective_max_mb:g} MB，segment_time={effective_segment_time}"
+    )
 
 
 def main() -> None:
@@ -368,12 +420,14 @@ def main() -> None:
     parser.add_argument("--playlist", help="只处理指定歌单 (ID 或名称)")
     parser.add_argument("--loop-count", type=int, default=None, help="覆盖循环引用次数")
     parser.add_argument("--segment-time", type=int, default=None, help="覆盖 TS 分片秒数")
+    parser.add_argument("--max-playlist-mb", type=float, default=None, help="m3u8 文件最大 MB（默认 99）")
     args = parser.parse_args()
     build_all(
         force=args.force,
         only_playlist=args.playlist,
         loop_count=args.loop_count,
         segment_time=args.segment_time,
+        max_playlist_mb=args.max_playlist_mb,
     )
 
 

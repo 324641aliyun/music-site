@@ -98,7 +98,7 @@ class PlaylistGUI:
         link_frame = ttk.LabelFrame(self.root, text="广播链接", padding=8)
         link_frame.pack(fill=tk.X, padx=6, pady=4)
 
-        ttk.Label(link_frame, text="GitHub 静态链接（固定轮数，非无限）").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(link_frame, text="GitHub 静态链接（自动填充到大小上限）").grid(row=0, column=0, sticky=tk.W)
         static_entry = ttk.Entry(link_frame, textvariable=self.static_url_var, width=80)
         static_entry.grid(row=0, column=1, sticky=tk.EW, padx=6)
         ttk.Button(link_frame, text="生成静态 HLS", command=self.generate_static_link).grid(row=0, column=2, padx=3)

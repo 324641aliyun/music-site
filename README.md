@@ -72,6 +72,7 @@ python playlist_manager.py list
 - HLS 音频：AAC 128k
 - TS 分片：默认 60 秒
 - 同一个 MP3 的 TS 分片只存一份，多个歌单共用
+- 静态 HLS 会自动计算循环次数，让 `index.m3u8` 尽量接近 99 MB，但不超过 GitHub 单文件限制
 - 静态 HLS 地址格式：
 
 ```text
@@ -84,11 +85,17 @@ https://324641aliyun.github.io/music-site/hls/<歌单ID>/index.m3u8
 http://<本机局域网IP>:8765/hls/<歌单ID>/index.m3u8
 ```
 
-修改静态 HLS 的重复轮数和分片长度：
+修改静态 HLS 的大小上限和分片长度：
 
 ```bash
-python playlist_manager.py config --loop-count 50 --segment-time 30
+# 静态 m3u8 最大 50 MB
+python playlist_manager.py config --max-playlist-mb 50 --segment-time 30
+
+# 也可以强制指定固定循环次数（不使用自动大小计算）
+python hls_builder.py --loop-count 1000
 ```
+
+静态 99 MB 的 m3u8 会让部分播放器加载较慢，遇到兼容问题可以调低 `max_playlist_mb`。真正无限循环仍建议使用 GUI 的“本机无限循环服务”。
 
 ## 一键同步
 
