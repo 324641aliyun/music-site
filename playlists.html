@@ -27,12 +27,17 @@
 </head>
 <body>
   <h1>歌单入口</h1>
-  <p>当前共 0 / 最多 10 个歌单。网页只展示歌单和 HLS 广播地址，歌单的创建、删除、启用、禁用和加减歌曲都在本机完成。</p>
+  <p>当前共 1 / 最多 10 个歌单。网页只展示歌单和 HLS 广播地址，歌单的创建、删除、启用、禁用和加减歌曲都在本机完成。</p>
   <div id="song-help" class="notice">
     要把 <strong id="song-name"></strong> 加入歌单，请在本机运行：
     <pre id="song-command"></pre>
   </div>
-  <p class="muted">暂无歌单。请在本机使用 playlist_manager.py 创建。</p>
+      <div class="card">
+      <h2>测试HLS <span class="badge on">已启用</span></h2>
+      <div class="meta">ID: pl_06a6c559 · 1 首歌曲</div>
+      <div class="url"><code>https://324641aliyun.github.io/music-site/hls/pl_06a6c559/index.m3u8</code> <button class="copy" data-url="https://324641aliyun.github.io/music-site/hls/pl_06a6c559/index.m3u8">复制 URL</button></div>
+      <details><summary>查看歌曲列表</summary><ul><li>[166] 朝你大胯捏一把.mp3</li></ul></details>
+    </div>
   <h2>本机操作方式</h2>
   <ol>
     <li>创建歌单：<code>python playlist_manager.py create "歌单名"</code></li>

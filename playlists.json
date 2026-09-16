@@ -2,5 +2,14 @@
   "max_playlists": 10,
   "loop_count": 100,
   "segment_time": 60,
-  "playlists": []
+  "playlists": [
+    {
+      "id": "pl_06a6c559",
+      "name": "测试HLS",
+      "enabled": true,
+      "songs": [
+        "[166] 朝你大胯捏一把.mp3"
+      ]
+    }
+  ]
 }
